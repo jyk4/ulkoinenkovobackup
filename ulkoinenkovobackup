@@ -1,0 +1,38 @@
+#!/bin/sh
+# a simple script to take backups to external HDDs (I'm using a sata dock)
+# You have to understand and modify the script to get it work in your own environment
+
+# open the luks encrypted disk. I have six of them
+cryptsetup luksOpen /dev/disk/by-uuid/43c10bcd-0ae3-46f2-8e19-74834106fe7d kryptattu
+cryptsetup luksOpen /dev/disk/by-uuid/38cfb10c-1e4b-4276-81c2-b3518d94e22c kryptattu
+cryptsetup luksOpen /dev/disk/by-uuid/db0be38a-1d7e-41af-9651-23278edf719f kryptattu
+cryptsetup luksOpen /dev/disk/by-uuid/41689cc4-dd8c-4729-b029-22b35bfd7833 kryptattu
+cryptsetup luksOpen /dev/disk/by-uuid/fe295ba4-52ba-4232-8e67-1d59e1fc2e59 kryptattu
+cryptsetup luksOpen /dev/disk/by-uuid/b804d1a3-2b3a-4881-b257-4d432f410ae6 kryptattu
+
+# and mount it to mount point
+mount /dev/mapper/kryptattu /mnt/ulkoinenkovo/
+
+# create an LVM snapshot of the filesystem what you want to backup
+lvcreate --size 100M --snapshot --name workhasnap /dev/vg_raid1_workha/lv_raid1_workha
+
+# mount the snapshot
+mkdir /tmp/workhasnap
+mount /dev/mapper/vg_raid1_workha-workhasnap /tmp/workhasnap
+
+# rsync the snapshot and other directories
+rsync -a --recursive /tmp/workhasnap /mnt/ulkoinenkovo/
+rsync -a --recursive /home/jyka/ /mnt/ulkoinenkovo/homesnap/jyka
+
+# put the last backup date info to disk
+date >> /mnt/ulkoinenkovo/last_backup_date.txt
+
+# unmount the snap and remove it
+umount /tmp/workhasnap
+lvremove -f /dev/mapper/vg_raid1_workha-workhasnap
+umount /mnt/ulkoinenkovo/
+cryptsetup luksClose /dev/mapper/kryptattu
+
+# put the backup date to source disk also
+echo "last backup date to offsitedisk: " > /home/jyka/lastbackupdatetooffsitedisk
+date +%d.%m.%Y >> /home/jyka/lastbackupdatetooffsitedisk
